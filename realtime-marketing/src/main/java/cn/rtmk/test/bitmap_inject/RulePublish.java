@@ -12,9 +12,11 @@ import java.sql.SQLException;
 
 public class RulePublish {
     public static void main(String[] args) throws IOException, SQLException {
-        String ruleId="g01_rule01";
         //根据规则的条件，去es中查询人群
-        int[] ruleProfileUsers={100,200,300,927,965};
+//        String ruleId="g01_rule01";
+//        int[] ruleProfileUsers={100,200,300,927,965};
+        String ruleId="g01_rule05";
+        int[] ruleProfileUsers={222,223,224,225,1,2,965};
         //把查询出来的人群的guid变成bitmap，发布到mysql
          //1.id转换成bitmap
         RoaringBitmap roaringBitmap = RoaringBitmap.bitmapOf(ruleProfileUsers);

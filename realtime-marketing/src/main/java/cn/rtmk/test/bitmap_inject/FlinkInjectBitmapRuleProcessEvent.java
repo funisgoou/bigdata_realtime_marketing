@@ -6,6 +6,7 @@ import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
+import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.BroadcastStream;
@@ -17,6 +18,7 @@ import org.apache.flink.streaming.api.functions.co.KeyedBroadcastProcessFunction
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
+import org.apache.flink.types.RowKind;
 import org.apache.flink.util.Collector;
 import org.roaringbitmap.RoaringBitmap;
 
@@ -31,10 +33,11 @@ import java.util.Map;
 public class FlinkInjectBitmapRuleProcessEvent {
     public static void main(String[] args) throws Exception {
         StreamExecutionEnvironment environment = StreamExecutionEnvironment.getExecutionEnvironment();
+        environment.setParallelism(1);
         environment.enableCheckpointing(5000, CheckpointingMode.EXACTLY_ONCE);
         environment.getCheckpointConfig().setCheckpointStorage("file:/d/checkpoint/");
         StreamTableEnvironment tenv = StreamTableEnvironment.create(environment);
-        
+
         //获取用户实时行为事件流
         DataStreamSource<String> eventStr = environment.socketTextStream("doitedu", 4444);
         SingleOutputStreamOperator<Tuple2<Integer, String>> events = eventStr.map(new MapFunction<String, Tuple2<Integer, String>>() {
@@ -44,7 +47,7 @@ public class FlinkInjectBitmapRuleProcessEvent {
                 return Tuple2.of(Integer.parseInt(split[0]), split[1]);
             }
         });
-        
+
         //获取规则系统中的规则定义流
         tenv.executeSql("CREATE TABLE rtmk_rule_def (\n" +
                 "                        rule_id STRING,\n" +
@@ -60,41 +63,46 @@ public class FlinkInjectBitmapRuleProcessEvent {
                 "    'table-name' = 'rtmk_rule_def')");
         Table table = tenv.sqlQuery("select rule_id,profile_users_bitmap from rtmk_rule_def");
         DataStream<Row> rowDataStream = tenv.toChangelogStream(table);
-        SingleOutputStreamOperator<Tuple2<String, RoaringBitmap>> ruleDefineStream = rowDataStream.map(new MapFunction<Row, Tuple2<String, RoaringBitmap>>() {
+        SingleOutputStreamOperator<Tuple2<Tuple2<String, String>, RoaringBitmap>> ruleDefineStream = rowDataStream.map(new MapFunction<Row, Tuple2<Tuple2<String, String>, RoaringBitmap>>() {
             @Override
-            public Tuple2<String, RoaringBitmap> map(Row row) throws Exception {
+            public Tuple2<Tuple2<String, String>, RoaringBitmap> map(Row row) throws Exception {
                 String ruleId = row.getFieldAs("rule_id");
                 byte[] profileUsersBitmap = row.getFieldAs("profile_users_bitmap");
                 //反序列化本次拿到的bitmap
                 RoaringBitmap roaringBitmap = RoaringBitmap.bitmapOf();
                 roaringBitmap.deserialize(ByteBuffer.wrap(profileUsersBitmap));
-                return Tuple2.of(ruleId, roaringBitmap);
+                return Tuple2.of(Tuple2.of(ruleId, row.getKind() == RowKind.DELETE ? "delete" : "upsert"), roaringBitmap);
             }
         });
-      
+
         //将规则定义流广播
         MapStateDescriptor<String, RoaringBitmap> broadcastStateDesc = new MapStateDescriptor<>("rule_info", String.class, RoaringBitmap.class);
-        BroadcastStream<Tuple2<String, RoaringBitmap>> broadcastStream = ruleDefineStream.broadcast(broadcastStateDesc);
+        BroadcastStream<Tuple2<Tuple2<String, String>, RoaringBitmap>> broadcastStream = ruleDefineStream.broadcast(broadcastStateDesc);
 
         //将广播流与行为事件流进行连接
-        events.keyBy(tp->tp.f0)
+        events.keyBy(tp -> tp.f0)
                 .connect(broadcastStream)
-                .process(new KeyedBroadcastProcessFunction<Object, Tuple2<Integer, String>, Tuple2<String, RoaringBitmap>, Object>() {
-                    @Override 
-                    public void processElement(Tuple2<Integer, String> event, KeyedBroadcastProcessFunction<Object, Tuple2<Integer, String>, Tuple2<String, RoaringBitmap>, Object>.ReadOnlyContext readOnlyContext, Collector<Object> collector) throws Exception {
+                .process(new KeyedBroadcastProcessFunction<Object, Tuple2<Integer, String>, Tuple2<Tuple2<String, String>, RoaringBitmap>, Object>() {
+                    @Override
+                    public void processElement(Tuple2<Integer, String> event, KeyedBroadcastProcessFunction<Object, Tuple2<Integer, String>, Tuple2<Tuple2<String, String>, RoaringBitmap>, Object>.ReadOnlyContext readOnlyContext, Collector<Object> collector) throws Exception {
                         ReadOnlyBroadcastState<String, RoaringBitmap> broadcastState = readOnlyContext.getBroadcastState(broadcastStateDesc);
                         for (Map.Entry<String, RoaringBitmap> entry : broadcastState.immutableEntries()) {
                             String ruleId = entry.getKey();
-                            RoaringBitmap  usersBitmap = entry.getValue();
+                            RoaringBitmap usersBitmap = entry.getValue();
                             collector.collect(String.format("规则id为:%s,用户id为:%s,目标人群是否包含此人:%s", ruleId, event.f0, usersBitmap.contains(event.f0)));
                         }
                     }
 
                     @Override
-                    public void processBroadcastElement(Tuple2<String, RoaringBitmap> ruleInfo, KeyedBroadcastProcessFunction<Object, Tuple2<Integer, String>, Tuple2<String, RoaringBitmap>, Object>.Context context, Collector<Object> collector) throws Exception {
-                        log.error("接受到一个新的规则定义信息,规则id为:{}", ruleInfo.f0);
+                    public void processBroadcastElement(Tuple2<Tuple2<String, String>, RoaringBitmap> ruleInfo, KeyedBroadcastProcessFunction<Object, Tuple2<Integer, String>, Tuple2<Tuple2<String, String>, RoaringBitmap>, Object>.Context context, Collector<Object> collector) throws Exception {
+                        log.error("接受到一个新的规则定义信息,规则id为:{}", ruleInfo.f0.f0);
                         BroadcastState<String, RoaringBitmap> broadcastState = context.getBroadcastState(broadcastStateDesc);
-                        broadcastState.put(ruleInfo.f0,ruleInfo.f1);
+                        if (ruleInfo.f0.f1.equals("upsert")) {
+                            broadcastState.put(ruleInfo.f0.f0, ruleInfo.f1);
+                        } else {
+                            log.error("根据规则平台的要求，删除了一个规则,规则id为:{}", ruleInfo.f0.f0);
+                            broadcastState.remove(ruleInfo.f0.f0);
+                        }
                     }
                 }).print();
         environment.execute();
