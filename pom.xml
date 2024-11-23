@@ -10,5 +10,6 @@
   <modules>
     <module>spark</module>
     <module>realtime-marketing</module>
+    <module>realtime-marketing-manager</module>
   </modules>
 </project>
