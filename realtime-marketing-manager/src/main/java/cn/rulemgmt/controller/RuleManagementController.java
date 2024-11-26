@@ -56,7 +56,7 @@ public class RuleManagementController {
         //遍历每个事件次数条件，并进行历史数据查询，且顺便发布到redis
         for(int i = 0;i<eventParams.size();i++){
             JSONObject eventParam = eventParams.getJSONObject(i);
-            actionConditionQueryService.queryActionCount(eventParam,ruleId);
+            actionConditionQueryService.queryActionCount(eventParam,ruleId,bitmap);
             
         }
         System.out.println("------查询行为次数条件的历史值 结束----\n\n");

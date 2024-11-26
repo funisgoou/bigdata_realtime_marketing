@@ -7,6 +7,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.jfinal.template.Engine;
 import com.jfinal.template.Template;
+import org.roaringbitmap.RoaringBitmap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +25,7 @@ public class ActionConditionQueryServiceImpl {
     public ActionConditionQueryServiceImpl() throws SQLException {
     }
 
-    public void queryActionCount(JSONObject eventParamJsonObject,String ruleId) throws SQLException {
+    public void queryActionCount(JSONObject eventParamJsonObject, String ruleId, RoaringBitmap bitmap) throws SQLException {
         //从事件次数条件中，取出各条件参数
         String eventId=eventParamJsonObject.getString("eventId");
         String windowStart=eventParamJsonObject.getString("windowStart");
@@ -48,7 +49,7 @@ public class ActionConditionQueryServiceImpl {
 		data.put("attrParamList", attrParamList);
 		String sql = template.renderToString(data);
 		//调用doris查询dao，查询出结果
-		dorisQueryDao.queryActionCount(sql, ruleId, conditionId+"");
+		dorisQueryDao.queryActionCount(sql, ruleId, conditionId+"",bitmap);
     }
 
 	public static void main(String[] args) throws SQLException {
