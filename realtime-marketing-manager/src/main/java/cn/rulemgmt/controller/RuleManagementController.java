@@ -1,7 +1,7 @@
 package cn.rulemgmt.controller;
 
-import cn.rulemgmt.service.ActionConditionQueryServiceImpl;
-import cn.rulemgmt.service.ProfileConditionQueryServiceImpl;
+import cn.rulemgmt.service.ActionConditionQueryService;
+import cn.rulemgmt.service.ProfileConditionQueryService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -17,10 +17,10 @@ import java.sql.SQLException;
 @RestController
 public class RuleManagementController { 
     @Autowired
-    ProfileConditionQueryServiceImpl profileConditionQueryService;
+    ProfileConditionQueryService profileConditionQueryService;
     
     @Autowired
-    ActionConditionQueryServiceImpl actionConditionQueryService;
+    ActionConditionQueryService actionConditionQueryService;
 //    public static void main(String[] args) throws IOException {
 //        UserProfileQueryController controller = new UserProfileQueryController();
 //        String webFrontJson="      {\"ruleId\":\"rule01\",\n" +
@@ -39,16 +39,21 @@ public class RuleManagementController {
     //从前端页面接收规则定义的参数json，并发布规则
     @RequestMapping("/api/publish/addrule")
     public void publishRule(@RequestBody String ruleDefine) throws IOException, SQLException {
-        //查询画像人群
         JSONObject ruleDefineJsonObject = JSON.parseObject(ruleDefine);
         JSONArray profileCondition = ruleDefineJsonObject.getJSONArray("profileCondition");
         String ruleId = ruleDefineJsonObject.getString("ruleId");
-        //调用Service查询满足规则定义条件的人群
+        /**
+         * 一、 人群画像处理
+         */
         System.out.println("------查询画像人群 开始----");
         RoaringBitmap bitmap = profileConditionQueryService.queryProfileUsers(profileCondition);
         System.out.println(bitmap.contains(3));
         System.out.println(bitmap.contains(5));
         System.out.println("------查询画像人群 完成----\n\n");
+
+        /**
+         * 二、规则的行为条件历史值处理
+         */
         //解析出行为次数条件，到doris中去查询条件的历史值,并发布到redis
         System.out.println("------查询行为次数条件的历史值 开始----\n\n");
         JSONObject actionCountConditionJsonObject = ruleDefineJsonObject.getJSONObject("actionCountCondition");
@@ -57,8 +62,11 @@ public class RuleManagementController {
         for(int i = 0;i<eventParams.size();i++){
             JSONObject eventParam = eventParams.getJSONObject(i);
             actionConditionQueryService.queryActionCount(eventParam,ruleId,bitmap);
-            
         }
         System.out.println("------查询行为次数条件的历史值 结束----\n\n");
+        /**
+         * 三、 规则的groovy运算代码处理
+         */
+
     }
 }

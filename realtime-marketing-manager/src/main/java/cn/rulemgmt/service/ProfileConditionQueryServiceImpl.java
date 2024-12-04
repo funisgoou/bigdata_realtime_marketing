@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 
 @Service
-public class ProfileConditionQueryServiceImpl {
+public class ProfileConditionQueryServiceImpl implements ProfileConditionQueryService {
     private RestHighLevelClient client;
     SearchRequest request;
     public ProfileConditionQueryServiceImpl(){
@@ -27,6 +27,7 @@ client = new RestHighLevelClient(RestClient.builder(new HttpHost("doitedu", 9200
         request=new SearchRequest("doeusers");
     }
     //接口文档：[{"tagId":"tg01","compareType":"eq","compareValue":"3"},{"tagId":"tg04","compareType":"match","compareValue":"运动"}]
+    @Override
     public RoaringBitmap queryProfileUsers(JSONArray jsonArray) throws IOException {
         /**
          * 组合条件查询

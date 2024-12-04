@@ -1,7 +1,7 @@
 package cn.rulemgmt.service;
 
 import cn.rulemgmt.dao.DorisQueryDao;
-import cn.rulemgmt.dao.RuleSystemMetaDaoImpl;
+import cn.rulemgmt.dao.RuleSystemMetaDao;
 import cn.rulemgmt.pojo.ActionAttributeParam;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -13,19 +13,19 @@ import org.springframework.stereotype.Service;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 
 @Service
-public class ActionConditionQueryServiceImpl {
+public class ActionConditionQueryServiceImpl implements ActionConditionQueryService {
 	@Autowired
-	RuleSystemMetaDaoImpl ruleSystemMetaDao;
+	RuleSystemMetaDao ruleSystemMetaDao;
     @Autowired
 	DorisQueryDao dorisQueryDao;
     public ActionConditionQueryServiceImpl() throws SQLException {
     }
 
-    public void queryActionCount(JSONObject eventParamJsonObject, String ruleId, RoaringBitmap bitmap) throws SQLException {
+    @Override
+	public void queryActionCount(JSONObject eventParamJsonObject, String ruleId, RoaringBitmap bitmap) throws SQLException {
         //从事件次数条件中，取出各条件参数
         String eventId=eventParamJsonObject.getString("eventId");
         String windowStart=eventParamJsonObject.getString("windowStart");
@@ -53,7 +53,7 @@ public class ActionConditionQueryServiceImpl {
     }
 
 	public static void main(String[] args) throws SQLException {
-		ActionConditionQueryServiceImpl service=new ActionConditionQueryServiceImpl();
+		ActionConditionQueryService service=new ActionConditionQueryServiceImpl();
 		String conditionJson="     {\n" +
 				"     \t\"eventId\":\"Share\",\n" +
 				"     \t\"attributeParams\":[\n" +
