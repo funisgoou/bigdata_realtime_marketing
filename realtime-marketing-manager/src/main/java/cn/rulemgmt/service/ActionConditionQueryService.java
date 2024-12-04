@@ -1,0 +1,10 @@
+package cn.rulemgmt.service;
+
+import com.alibaba.fastjson.JSONObject;
+import org.roaringbitmap.RoaringBitmap;
+
+import java.sql.SQLException;
+
+public interface ActionConditionQueryService {
+    void queryActionCount(JSONObject eventParamJsonObject, String ruleId, RoaringBitmap bitmap) throws SQLException;
+}
