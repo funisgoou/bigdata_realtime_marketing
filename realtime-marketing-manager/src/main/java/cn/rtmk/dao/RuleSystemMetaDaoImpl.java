@@ -1,4 +1,4 @@
-package cn.rulemgmt.dao;
+package cn.rtmk.dao;
 
 import org.springframework.stereotype.Repository;
 

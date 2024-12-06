@@ -1,4 +1,4 @@
-package cn.rulemgmt.pojo;
+package cn.rtmk.pojo;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

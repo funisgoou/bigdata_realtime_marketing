@@ -1,4 +1,4 @@
-package cn.rulemgmt.service;
+package cn.rtmk.service;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;

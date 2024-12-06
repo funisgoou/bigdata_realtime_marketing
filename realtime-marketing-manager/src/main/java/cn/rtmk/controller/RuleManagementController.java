@@ -1,7 +1,7 @@
-package cn.rulemgmt.controller;
+package cn.rtmk.controller;
 
-import cn.rulemgmt.service.ActionConditionQueryService;
-import cn.rulemgmt.service.ProfileConditionQueryService;
+import cn.rtmk.service.ActionConditionQueryService;
+import cn.rtmk.service.ProfileConditionQueryService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;

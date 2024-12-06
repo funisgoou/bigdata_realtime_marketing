@@ -11,6 +11,8 @@
     <module>spark</module>
     <module>realtime-marketing</module>
     <module>realtime-marketing-manager</module>
+      <module>rule_model_resources</module>
+    <module>realtime-marketing-common</module>
   </modules>
   <parent>
     <groupId>org.springframework.boot</groupId>

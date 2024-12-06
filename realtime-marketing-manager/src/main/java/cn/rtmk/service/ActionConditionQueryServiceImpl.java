@@ -1,8 +1,8 @@
-package cn.rulemgmt.service;
+package cn.rtmk.service;
 
-import cn.rulemgmt.dao.DorisQueryDao;
-import cn.rulemgmt.dao.RuleSystemMetaDao;
-import cn.rulemgmt.pojo.ActionAttributeParam;
+import cn.rtmk.dao.DorisQueryDao;
+import cn.rtmk.dao.RuleSystemMetaDao;
+import cn.rtmk.pojo.ActionAttributeParam;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.jfinal.template.Engine;
