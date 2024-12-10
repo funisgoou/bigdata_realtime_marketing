@@ -2,40 +2,40 @@ package cn.rtmk.controller;
 
 import cn.rtmk.service.ActionConditionQueryService;
 import cn.rtmk.service.ProfileConditionQueryService;
+import cn.rtmk.service.RuleSystemMetaService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.jfinal.template.Engine;
+import com.jfinal.template.Template;
 import org.roaringbitmap.RoaringBitmap;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.HashMap;
 
 @RestController
 public class RuleManagementController { 
-    @Autowired
-    ProfileConditionQueryService profileConditionQueryService;
-    
-    @Autowired
-    ActionConditionQueryService actionConditionQueryService;
-//    public static void main(String[] args) throws IOException {
-//        UserProfileQueryController controller = new UserProfileQueryController();
-//        String webFrontJson="      {\"ruleId\":\"rule01\",\n" +
-//                "\"profileCondition\":[{\"tagId\":\"tg01\",\"compareType\":\"gt\",\"compareValue\":\"2\"},{\"tagId\":\"tg04\",\"compareType\":\"match\",\"compareValue\":\"股权\"}]\n" +
-//                "}";
-//        controller.publishRule(webFrontJson);
-//    }
 
-    /**
-     * {"ruleId":"rule01",
-     *  "profileCondition":[{"tagId":"tg01","compareType":"eq","compareValue":"3"},{"tagId":"tg04","compareType":"match","compareValue":"运动"}]
-     * }
-     * 
-     * 
-     */
+    private final ProfileConditionQueryService profileConditionQueryService;
+
+
+    private final ActionConditionQueryService actionConditionQueryService;
+
+    private final RuleSystemMetaService ruleSystemMetaService;
+
+    public RuleManagementController(ProfileConditionQueryService profileConditionQueryService,
+                                    ActionConditionQueryService actionConditionQueryService,
+                                    RuleSystemMetaService ruleSystemMetaService) {
+        this.profileConditionQueryService = profileConditionQueryService;
+        this.actionConditionQueryService = actionConditionQueryService;
+        this.ruleSystemMetaService = ruleSystemMetaService;
+    }
+
+
     //从前端页面接收规则定义的参数json，并发布规则
     @RequestMapping("/api/publish/addrule")
     public void publishRule(@RequestBody String ruleDefine) throws IOException, SQLException {
@@ -67,6 +67,30 @@ public class RuleManagementController {
         /**
          * 三、 规则的groovy运算代码处理
          */
+        String ruleModelGroovyTemplate = ruleSystemMetaService.findRuleModelGroovyTemplate(ruleDefineJsonObject.getInteger("ruleModelId"));
+        Template template = Engine.use().getTemplateByString(ruleModelGroovyTemplate);
+        //取出规则实例定义参数中的事件次数条件参数
+        JSONObject actionCountCondition = ruleDefineJsonObject.getJSONObject("actionCountCondition");
+        //从事件条件参数中取出事件条件的个数
+        int eventCount = actionCountCondition.getJSONArray("eventParams").size();
+        //从事件条件参数中取出事件条件的组合布尔表达式
+        String combineExpr = actionCountCondition.getString("combineExpr");
+        //放入一个hashmap中，作为模板的参数
+        HashMap<String, Object> data = new HashMap<>();
+        data.put("eventParams", new int[eventCount]);
+        data.put("combineExpr", combineExpr);
+        //渲染模板，得到groovy代码
+        String groovyCaculatorCode = template.renderToString(data);
+
+        /**
+         * 四、正式发布规则
+         * 把3类信息，放入规则平台的元数据库
+         * 人群bitmap
+         * 规则参数(大json)
+         * 规则运算的groovy代码
+         */
+        ruleSystemMetaService.publishRuleInstance(ruleId, ruleDefineJsonObject.getInteger("ruleModelId"),
+                bitmap, groovyCaculatorCode, ruleDefine, "hugo", 1);
 
     }
 }
