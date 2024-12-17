@@ -85,6 +85,7 @@ public class Test_Rulemodel_01_caculatorTemplate {
                 "    \"combineExpr\": \" res0 && (res1 || res2) \"\n" +
                 "  }\n" +
                 "}";
+
         Template template = Engine.use().getTemplate("E:\\coding\\bigdata\\rule_model_resources\\caculator_groovy_templates\\rulemodel_01_caculator.template");
 
         HashMap<String, Object> data = new HashMap<>();
@@ -93,7 +94,7 @@ public class Test_Rulemodel_01_caculatorTemplate {
         JSONArray eventParams = ruleDefineJsonObject.getJSONObject("actionCountCondition").getJSONArray("eventParams");
         int eventCount = eventParams.size();
         data.put("eventParams", new int[eventCount]);
-        data.put("combineExpr", "res_0 && res_1 && res_2");
+        data.put("combineExpr", "res_0 && (res_1 || res_2)");
 
         String code = template.renderToString(data);
 
@@ -116,10 +117,17 @@ public class Test_Rulemodel_01_caculatorTemplate {
          * res0 && (res1 || res2)
          */
         HashMap<String, String> properties = new HashMap<>();
-        properties.put("p1","v2");
+        properties.put("p1","v1");
         properties.put("p2","v3");
-        UserEvent e1 = new UserEvent(2, "e2", properties, 1000000);
-        caculator.calc(e1);
-        //做判断
+        UserEvent e1 = new UserEvent(1, "e1", properties, 1000000);
+        long start=System.currentTimeMillis();
+        for(int i=0;i<=1000;i++){
+            caculator.calc(e1);
+        }
+
+        long end=System.currentTimeMillis();
+        //做匹配判断
+        System.out.println(caculator.isMatch(1));
+        System.out.println(end-start);
     }
 }

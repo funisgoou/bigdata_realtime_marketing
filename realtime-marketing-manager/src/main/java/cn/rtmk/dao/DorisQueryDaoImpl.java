@@ -29,10 +29,17 @@ public class DorisQueryDaoImpl implements DorisQueryDao {
             if (bitmap.contains(guid)) {
                 long cnt = resultSet.getLong("cnt");
                 guidAndCount.put(guid + "", cnt + "");
+                //将查询到的事件次数条件结果，攒够一批次，发布到规则引擎用的redis存储中，作为未来滚动计算的初始值
+                if(guidAndCount.size() == 1000){
+                    jedis.hmset(ruleId + ":" + conditionId, guidAndCount);
+                    guidAndCount.clear();
             }
         }
-        //将查询到的事件次数条件发布到redis中，作为未来滚动计算的初始值
-        jedis.hmset(ruleId + ":" + conditionId, guidAndCount);
+        }
+        //将查最后不满1000的批次，发布到规则引擎用的redis存储中
+        if(guidAndCount.size() > 0){
+            jedis.hmset(ruleId + ":" + conditionId, guidAndCount);
+        }
     }
 }
 

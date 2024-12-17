@@ -37,8 +37,8 @@ public class RuleManagementController {
 
 
     //从前端页面接收规则定义的参数json，并发布规则
-    @RequestMapping("/api/publish/addrule")
-    public void publishRule(@RequestBody String ruleDefine) throws IOException, SQLException {
+    @RequestMapping("/api/publish/addrule/model01")
+    public void publishRuleModel01(@RequestBody String ruleDefine) throws IOException, SQLException {
         JSONObject ruleDefineJsonObject = JSON.parseObject(ruleDefine);
         JSONArray profileCondition = ruleDefineJsonObject.getJSONArray("profileCondition");
         String ruleId = ruleDefineJsonObject.getString("ruleId");
@@ -47,15 +47,12 @@ public class RuleManagementController {
          */
         System.out.println("------查询画像人群 开始----");
         RoaringBitmap bitmap = profileConditionQueryService.queryProfileUsers(profileCondition);
-        System.out.println(bitmap.contains(3));
-        System.out.println(bitmap.contains(5));
-        System.out.println("------查询画像人群 完成----\n\n");
+        System.out.println("圈中人群:\n"+bitmap);
 
         /**
          * 二、规则的行为条件历史值处理
          */
         //解析出行为次数条件，到doris中去查询条件的历史值,并发布到redis
-        System.out.println("------查询行为次数条件的历史值 开始----\n\n");
         JSONObject actionCountConditionJsonObject = ruleDefineJsonObject.getJSONObject("actionCountCondition");
         JSONArray eventParams = actionCountConditionJsonObject.getJSONArray("eventParams");
         //遍历每个事件次数条件，并进行历史数据查询，且顺便发布到redis

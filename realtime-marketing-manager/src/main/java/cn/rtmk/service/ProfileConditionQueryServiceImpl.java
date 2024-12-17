@@ -2,6 +2,8 @@ package cn.rtmk.service;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHost;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -22,10 +24,12 @@ import java.io.IOException;
 public class ProfileConditionQueryServiceImpl implements ProfileConditionQueryService {
     private RestHighLevelClient client;
     SearchRequest request;
-    public ProfileConditionQueryServiceImpl(){
-client = new RestHighLevelClient(RestClient.builder(new HttpHost("doitedu", 9200, "http")));
-        request=new SearchRequest("doeusers");
+
+    public ProfileConditionQueryServiceImpl() {
+        client = new RestHighLevelClient(RestClient.builder(new HttpHost("doitedu", 9200, "http")));
+        request = new SearchRequest("doeusers");
     }
+
     //接口文档：[{"tagId":"tg01","compareType":"eq","compareValue":"3"},{"tagId":"tg04","compareType":"match","compareValue":"运动"}]
     @Override
     public RoaringBitmap queryProfileUsers(JSONArray jsonArray) throws IOException {
@@ -40,18 +44,60 @@ client = new RestHighLevelClient(RestClient.builder(new HttpHost("doitedu", 9200
             String tagId = paramObject.getString("tagId");
             String compareType = paramObject.getString("compareType");
             String compareValue = paramObject.getString("compareValue");
-            if("lt".equals(compareType)){
-                RangeQueryBuilder lt = QueryBuilders.rangeQuery(tagId).lt(compareValue);
-                boolQueryBuilder.must(lt);
-            }else if("gt".equals(compareType))
-            {
-                RangeQueryBuilder gt = QueryBuilders.rangeQuery(tagId).gt(compareValue);
-                boolQueryBuilder.must(gt);            }
-            else
-            {
-                MatchQueryBuilder matchQueryBuilder = QueryBuilders.matchQuery(tagId, compareValue);
-                boolQueryBuilder.must(matchQueryBuilder);
+            switch (compareType) {
+                case "lt":
+                    RangeQueryBuilder lt = QueryBuilders.rangeQuery(tagId).lt(compareValue);
+
+                    if (compareValue.matches("\\d+(.\\d+)?")) {
+                        lt = QueryBuilders.rangeQuery(tagId).lt(Float.parseFloat(compareValue));
+                    }
+                    boolQueryBuilder.must(lt);
+                    break;
+                case "gt":
+                    RangeQueryBuilder gt = QueryBuilders.rangeQuery(tagId).gt(compareValue);
+                    if (compareValue.matches("\\d+(.\\d+)?")) {
+                        gt = QueryBuilders.rangeQuery(tagId).gt(Float.parseFloat(compareValue));
+                    }
+                    boolQueryBuilder.must(gt);
+                    break;
+                case "ge":
+                    RangeQueryBuilder gte = QueryBuilders.rangeQuery(tagId).gte(compareValue);
+                    if (compareValue.matches("\\d+(.\\d+)?")) {
+                        gte = QueryBuilders.rangeQuery(tagId).gte(Float.parseFloat(compareValue));
+                    }
+                    boolQueryBuilder.must(gte);
+                    break;
+                case "le":
+                    RangeQueryBuilder lte = QueryBuilders.rangeQuery(tagId).lte(compareValue);
+                    if (compareValue.matches("\\d+(.\\d+)?")) {
+                        lte = QueryBuilders.rangeQuery(tagId).lte(Float.parseFloat(compareValue));
+                    }
+                    boolQueryBuilder.must(lte);
+                    break;
+                case "between":
+                    String[] fromTo = compareValue.split(",");
+                    RangeQueryBuilder between = QueryBuilders.rangeQuery(tagId).from(fromTo[0], true).to(fromTo[1], true);
+                    if (fromTo[0].matches("\\d+(.\\d+)?") && fromTo[1].matches("\\d+(.\\d+)?")) {
+                        between = QueryBuilders.rangeQuery(tagId).from(Float.parseFloat(fromTo[0]), true).to(Float.parseFloat(fromTo[1]), true);
+                    }
+                    boolQueryBuilder.must(between);
+                    break;
+                default:
+                    MatchQueryBuilder matchQueryBuilder = QueryBuilders.matchQuery(tagId, compareValue);
+                    boolQueryBuilder.must(matchQueryBuilder);
             }
+//            if("lt".equals(compareType)){
+//                RangeQueryBuilder lt = QueryBuilders.rangeQuery(tagId).lt(compareValue);
+//                boolQueryBuilder.must(lt);
+//            }else if("gt".equals(compareType))
+//            {
+//                RangeQueryBuilder gt = QueryBuilders.rangeQuery(tagId).gt(compareValue);
+//                boolQueryBuilder.must(gt);            }
+//            else
+//            {
+//                MatchQueryBuilder matchQueryBuilder = QueryBuilders.matchQuery(tagId, compareValue);
+//                boolQueryBuilder.must(matchQueryBuilder);
+//            }
 
         }
 
@@ -61,8 +107,7 @@ client = new RestHighLevelClient(RestClient.builder(new HttpHost("doitedu", 9200
         // 用客户端发送请求
         SearchResponse response2 = client.search(request, RequestOptions.DEFAULT);
         RoaringBitmap bitmap = RoaringBitmap.bitmapOf();
-        response2.getHits().forEach(ht-> bitmap.add(Integer.parseInt(ht.getId())));
-        client.close();
+        response2.getHits().forEach(ht -> bitmap.add(Integer.parseInt(ht.getId())));
         return bitmap;
     }
 }
