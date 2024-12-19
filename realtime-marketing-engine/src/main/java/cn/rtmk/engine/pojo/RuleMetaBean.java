@@ -1,6 +1,6 @@
 package cn.rtmk.engine.pojo;
 
-import cn.rtmk.commom.interfaces.RuleConditionCaculator;
+import cn.rtmk.commom.interfaces.RuleCalculator;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -36,5 +36,5 @@ public class RuleMetaBean {
     private String ruleParamJson;
     private String creatorName;
     private int ruleStatus;
-    private RuleConditionCaculator ruleConditionCaculator;
+    private RuleCalculator ruleConditionCaculator;
 }

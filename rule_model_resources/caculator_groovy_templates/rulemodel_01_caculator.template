@@ -45,35 +45,6 @@ public class EventCountConditionCaculator implements RuleConditionCaculator {
             }
         }
 
-
-    private boolean judgeEventAttribute(UserEvent eventBean, JSONArray attributeParams) {
-        for (int j = 0; j < attributeParams.size(); j++){
-            JSONObject attributeParam = attributeParams.getJSONObject(j);
-            String attributeName = attributeParam.getString("attributeName");
-            String compareType = attributeParam.getString("compareType");
-            String compareValue = attributeParam.getString("compareValue");
-            String eventAttributeValue= eventBean.getProperties().get(attributeName);
-            if("=".equals(compareType)&& !(compareValue.compareTo(eventAttributeValue)==0)){
-                return false;
-            }
-            if (">".equals(compareType)&& !(compareValue.compareTo(eventAttributeValue)>0)){
-                return false;
-            }
-            if ("<".equals(compareType)&&!(compareValue.compareTo(eventAttributeValue)<0)){
-                return false;
-            }
-            if (">=".equals(compareType)&&!(compareValue.compareTo(eventAttributeValue)>=0)){
-                return false;
-            }
-            if ("<=".equals(compareType)&&!(compareValue.compareTo(eventAttributeValue)<=0)){
-                return false;
-            }
-        }
-        return true;
-    }
-
-
-
     @Override
     public boolean isMatch(int guid){
             #for(eventParam : eventParams)

@@ -4,12 +4,13 @@ import cn.rtmk.commom.pojo.UserEvent;
 import cn.rtmk.engine.functions.Json2UserEventMapFunction;
 import cn.rtmk.engine.functions.Row2RuleMetaBeanMapFunction;
 import cn.rtmk.engine.functions.RuleMatchProcessFunction;
+import cn.rtmk.engine.functions.RuleMatchProcessFunctionOld;
 import cn.rtmk.engine.pojo.RuleMatchResult;
 import cn.rtmk.engine.pojo.RuleMetaBean;
 import cn.rtmk.engine.utils.FlinkStateDescriptors;
+import com.alibaba.fastjson.JSONObject;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
-import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
 import org.apache.flink.streaming.api.CheckpointingMode;
@@ -18,7 +19,6 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.co.KeyedBroadcastProcessFunction;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
@@ -78,7 +78,7 @@ public class RuleEngine {
         BroadcastStream<RuleMetaBean> ruleMetaBeanBroadcastStream = ruleMetaBeanStream.broadcast(FlinkStateDescriptors.ruleMetaBeanMapStateDescriptor);
 
         //连接用户行为事件流 和 规则变更数据流
-        DataStream<RuleMatchResult> resultStream = userEventStream.keyBy(UserEvent::getGuid)
+        DataStream<JSONObject> resultStream = userEventStream.keyBy(UserEvent::getGuid)
                 .connect(ruleMetaBeanBroadcastStream)
                 //处理用户事件，进行规则运行和匹配
                 .process(new RuleMatchProcessFunction());

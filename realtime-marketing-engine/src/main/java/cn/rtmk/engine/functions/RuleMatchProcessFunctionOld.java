@@ -6,7 +6,9 @@ import cn.rtmk.commom.pojo.UserEvent;
 import cn.rtmk.commom.utils.UserEventComparator;
 import cn.rtmk.engine.pojo.RuleMatchResult;
 import cn.rtmk.engine.pojo.RuleMetaBean;
+
 import cn.rtmk.engine.utils.FlinkStateDescriptors;
+
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import groovy.lang.GroovyClassLoader;
@@ -22,7 +24,7 @@ import redis.clients.jedis.Jedis;
 import java.util.Map;
 
 @Slf4j
-public class RuleMatchProcessFunction extends KeyedBroadcastProcessFunction<Integer, UserEvent, RuleMetaBean, JSONObject> {
+public class RuleMatchProcessFunctionOld extends KeyedBroadcastProcessFunction<Integer, UserEvent, RuleMetaBean, JSONObject> {
     private Jedis jedis;
 
     @Override
@@ -47,9 +49,34 @@ public class RuleMatchProcessFunction extends KeyedBroadcastProcessFunction<Inte
         for (Map.Entry<String, RuleMetaBean> ruleEntry : ruleEntries) {
             //取出规则的封装对象
             RuleMetaBean ruleMetaBean = ruleEntry.getValue();
+            //取出规则的画像人群bitmap
+            RoaringBitmap profileUserBitmap = ruleMetaBean.getProfileUserBitmap();
 
-            //调用规则的运算机，对输入事件进行处理
-            ruleMetaBean.getRuleConditionCaculator().process(userEvent);
+            //判断本事件的行为人，是否属于本规则的画像人群
+            if (profileUserBitmap.contains(userEvent.getGuid())) {
+
+                //取出规则的参数Json
+                JSONObject ruleParamJsonObj = JSON.parseObject(ruleMetaBean.getRuleParamJson());
+                //取出规则的触发事件条件参数Json
+                JSONObject ruleTrigEvent = ruleParamJsonObj.getJSONObject("ruleTrigEvent");
+                //判断用户行为事件，是否是本规则的触发事件，则进行规则的匹配判断
+                if (UserEventComparator.userEventIsEqualParam(userEvent, ruleTrigEvent)) {
+                    //如果是触发事件，则判断本行为人是否满足了本规则的所有条件
+                    boolean isMatch = ruleMetaBean.getRuleConditionCaculator().isMatch(userEvent.getGuid());
+                    log.info("用户:{},触发事件{},规则:{},规则匹配结果:{}",userEvent.getGuid(),userEvent.getEventId(),ruleEntry.getKey(),isMatch);
+                    //如果已满足，则输出本规则的触达信息
+                    if (isMatch) {
+                        RuleMatchResult res = new RuleMatchResult(userEvent.getGuid(), ruleEntry.getKey(), System.currentTimeMillis());
+                        collector.collect(JSON.parseObject(JSON.toJSONString(res)));
+                    }
+                }
+                //判断用户行为事件，如果本事件不是规则的触发事件，则进行规则的条件统计运算
+                else {
+                    //做规则运算
+                    ruleMetaBean.getRuleConditionCaculator().calc(userEvent);
+                    log.info("收到用户:{},行为事件:{}，处理规则:{}", userEvent.getGuid(), userEvent.getEventId(), ruleEntry.getKey());
+                }
+            }
         }
     }
 
