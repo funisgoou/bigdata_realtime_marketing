@@ -162,7 +162,7 @@ public class Test_Rulemodel_02_caculatorTemplate {
 
         String code = template.renderToString(data);
 
-        System.out.println(code);
+//        System.out.println(code);
 
         System.out.println("---------编译加载代码，进行调用");
         Jedis jedis = new Jedis("doitedu", 6379);
@@ -173,31 +173,44 @@ public class Test_Rulemodel_02_caculatorTemplate {
         //先初始化
         caculator.init(jedis, ruleDefineJsonObject, RoaringBitmap.bitmapOf(1,2,3,4,5),null);
         //做运算
-        /**
+        /**行为次数条件，测试规则参数:
          * e1 p1=v1 ,>=3
          * e2 p1=v2,p2=v3,>=1
          * e3 p1=v1,>=2
          *
-         * res0 && (res1 || res2)
+         * res_0 && (res_1 || res_2)
+         *
+         * 行为序列条件，测试参数：
+         * e1 page001
+         * e3 page001,item003
+         * e2 page001
          */
         HashMap<String, String> properties = new HashMap<>();
-        properties.put("p1","v1");
+        properties.put("pageId","page001");
         properties.put("p2","v3");
         UserEvent e1 = new UserEvent(1, "e1", properties, 1660838400000L);
 
-        HashMap<String, String> properties5 = new HashMap<>();
-        properties.put("p1","v1");
-        properties.put("p2","v3");
-        UserEvent e5 = new UserEvent(1, "e5", properties, 1660838400000L);
+        HashMap<String, String> properties3 = new HashMap<>();
+        properties3.put("pageId","page002");
+        properties3.put("itemId","item003");
+        UserEvent e3 = new UserEvent(1, "e3", properties3, 1660838400000L);
 
-        long start=System.currentTimeMillis();
-        for(int i=0;i<=1;i++){
-            caculator.process(e1);
-        }
+        HashMap<String, String> properties2 = new HashMap<>();
+        properties2.put("pageId","page002");
+        properties2.put("p2","v3");
+        UserEvent e2 = new UserEvent(1, "e2", properties2, 1660838400000L);
 
-        long end=System.currentTimeMillis();
-        //做匹配判断
+        caculator.process(e1);
+        caculator.process(e3);
+        caculator.process(e2);
+
+//        long start=System.currentTimeMillis();
+//        for(int i=0;i<=1;i++){
+//            caculator.process(e1);
+//        }
+//
+//        long end=System.currentTimeMillis();
+//        做匹配判断
         System.out.println(caculator.isMatch(1));
-        System.out.println(end-start);
     }
 }

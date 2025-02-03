@@ -31,7 +31,7 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
     //规则的最大触达次数上限
     int ruleMatchMaxCount;
     //行为序列条件中的事件定义数组
-    private JSONArray seqEventParams;
+    JSONArray seqEventParams;
     //人群画像圈选bitmap
     private RoaringBitmap profileUserBitmap;
     //flink的结果输出器
@@ -146,8 +146,8 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
         String redisSeqStepKey = ruleId + ":" + actionSeqConditionId + ":step"
         String redisSeqCntKey = ruleId + ":" + actionSeqConditionId + ":cnt"
         //1.从redis中获取该用户的，本规则的行为序列的，待完成序列的，已到达的，步骤号
-        String preStepStr = jedis.hget(redisSeqKey, guid + "")
-        int preStep = preStepStr == null ? "0" : Integer.parseInt(preStepStr)
+        String preStepStr = jedis.hget(redisSeqStepKey, guid + "")
+        int preStep = preStepStr == null ? 0 : Integer.parseInt(preStepStr)
         // A-C-D
         // 判断本次输入的事件，是否是行为序列参数期待的下一个事件
         JSONObject eventParam = seqEventParams.getJSONObject(preStep)

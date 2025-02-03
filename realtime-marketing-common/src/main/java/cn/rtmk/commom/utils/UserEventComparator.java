@@ -16,20 +16,22 @@ public class UserEventComparator {
                 String compareType = attributeParam.getString("compareType");
                 String compareValue = attributeParam.getString("compareValue");
                 String eventAttributeValue = userEvent.getProperties().get(attributeName);
-                if ("=".equals(compareType) && !(compareValue.compareTo(eventAttributeValue) == 0)) {
-                    return false;
-                }
-                if (">".equals(compareType) && !(compareValue.compareTo(eventAttributeValue) > 0)) {
-                    return false;
-                }
-                if ("<".equals(compareType) && !(compareValue.compareTo(eventAttributeValue) < 0)) {
-                    return false;
-                }
-                if (">=".equals(compareType) && !(compareValue.compareTo(eventAttributeValue) >= 0)) {
-                    return false;
-                }
-                if ("<=".equals(compareType) && !(compareValue.compareTo(eventAttributeValue) <= 0)) {
-                    return false;
+                if (eventAttributeValue != null) {
+                    if ("=".equals(compareType) && !(compareValue.compareTo(eventAttributeValue) == 0)) {
+                        return false;
+                    }
+                    if (">".equals(compareType) && !(compareValue.compareTo(eventAttributeValue) > 0)) {
+                        return false;
+                    }
+                    if ("<".equals(compareType) && !(compareValue.compareTo(eventAttributeValue) < 0)) {
+                        return false;
+                    }
+                    if (">=".equals(compareType) && !(compareValue.compareTo(eventAttributeValue) >= 0)) {
+                        return false;
+                    }
+                    if ("<=".equals(compareType) && !(compareValue.compareTo(eventAttributeValue) <= 0)) {
+                        return false;
+                    }
                 }
             }
             return true;

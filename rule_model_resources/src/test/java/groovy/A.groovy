@@ -1,5 +1,4 @@
-package cn.rtmk.rulemodel.groovy
-
+package groovy
 import cn.rtmk.commom.interfaces.RuleCalculator
 import cn.rtmk.commom.pojo.UserEvent
 import cn.rtmk.commom.utils.UserEventComparator
@@ -11,11 +10,7 @@ import org.roaringbitmap.RoaringBitmap
 import redis.clients.jedis.Jedis
 
 import java.text.ParseException
-
-/**
- * 事件次数类条件的运算机逻辑
- */
-public class RuleModel_02_Calculator_groovy implements RuleCalculator {
+class A implements RuleCalculator {
     private Jedis jedis;
     //规则定义参数整体Json对象
     private JSONObject ruleDefineParamJsonObject;
@@ -145,7 +140,7 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
         String redisSeqCntKey = ruleId + ":" + actionSeqConditionId + ":cnt"
         //1.从redis中获取该用户的，本规则的行为序列的，待完成序列的，已到达的，步骤号
         String preStepStr = jedis.hget(redisSeqStepKey, guid + "")
-        int preStep = preStepStr == null ? 0 : Integer.parseInt(preStepStr)
+        int preStep = preStepStr == null ? "0" : Integer.parseInt(preStepStr)
         // A-C-D
         // 判断本次输入的事件，是否是行为序列参数期待的下一个事件
         JSONObject eventParam = seqEventParams.getJSONObject(preStep)
@@ -159,20 +154,20 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
 
 
         if (userEvent.getEventTime() >= startTime && userEvent.getEventTime() <= endTime){
-        //如果输入事件，正是待完成序列所期待的事件
-        if (UserEventComparator.userEventIsEqualParam(userEvent, eventParam)) {
-            if (preStep == seqEventParams.size() - 1) {
-                //讲redis中的步骤号重置为0
-                jedis.hset(redisSeqStepKey, guid + "", "0");
-                //并且将redis中该用户该条件的完成次数+1
-                jedis.hincrBy(redisSeqCntKey, guid + "", 1);
+            //如果输入事件，正是待完成序列所期待的事件
+            if (UserEventComparator.userEventIsEqualParam(userEvent, eventParam)) {
+                if (preStep == seqEventParams.size() - 1) {
+                    //讲redis中的步骤号重置为0
+                    jedis.hset(redisSeqStepKey, guid + "", "0");
+                    //并且将redis中该用户该条件的完成次数+1
+                    jedis.hincrBy(redisSeqCntKey, guid + "", 1);
+                }
+                //否则步骤号+1
+                else {
+                    //更新redis中的待完成序列号
+                    long by = jedis.hincrBy(redisSeqStepKey, guid + "", 1)
+                }
             }
-            //否则步骤号+1
-            else {
-                //更新redis中的待完成序列号
-                long by = jedis.hincrBy(redisSeqStepKey, guid + "", 1)
-            }
-        }
         }
     }
 
@@ -192,7 +187,7 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
         if(ruleMatchRealCnt <= ruleMatchMaxCount-1){
             boolean res_0 = isMatchEventCount()
             boolean res_1 = isMatchEventSeq()
-            if(#(ruleCombineExpr)){
+            if(res_0 && res_1){
                 jedis.hincrBy(redisMatchCntKey,guid+"",1)
             }
             return true;
@@ -201,15 +196,25 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
     }
 
     boolean isMatchEventCount(int guid) {
-    #for(eventParam : eventParams)
-    JSONObject eventParam_#(for.index) = eventParams.getJSONObject(#(for.index));
-    Integer conditionId_#(for.index) = eventParam_#(for.index).getInteger("conditionId");
-    Integer eventCountParam_#(for.index) = eventParam_#(for.index).getInteger("eventCount");
-    String realCountStr_#(for.index) = jedis.hget(ruleId + ":" + conditionId_#(for.index), guid + "");
-    int realCount_#(for.index) = Integer.parseInt(realCountStr_#(for.index)==null?"0":realCountStr_#(for.index));
-    boolean res_#(for.index) = realCount_#(for.index)>=eventCountParam_#(for.index);
-    #end
-    return #(cntConditionCombineExpr);
+        JSONObject eventParam_0 = eventParams.getJSONObject(0);
+        Integer conditionId_0 = eventParam_0.getInteger("conditionId");
+        Integer eventCountParam_0 = eventParam_0.getInteger("eventCount");
+        String realCountStr_0 = jedis.hget(ruleId + ":" + conditionId_0, guid + "");
+        int realCount_0 = Integer.parseInt(realCountStr_0==null?"0":realCountStr_0);
+        boolean res_0 = realCount_0>=eventCountParam_0;
+        JSONObject eventParam_1 = eventParams.getJSONObject(1);
+        Integer conditionId_1 = eventParam_1.getInteger("conditionId");
+        Integer eventCountParam_1 = eventParam_1.getInteger("eventCount");
+        String realCountStr_1 = jedis.hget(ruleId + ":" + conditionId_1, guid + "");
+        int realCount_1 = Integer.parseInt(realCountStr_1==null?"0":realCountStr_1);
+        boolean res_1 = realCount_1>=eventCountParam_1;
+        JSONObject eventParam_2 = eventParams.getJSONObject(2);
+        Integer conditionId_2 = eventParam_2.getInteger("conditionId");
+        Integer eventCountParam_2 = eventParam_2.getInteger("eventCount");
+        String realCountStr_2 = jedis.hget(ruleId + ":" + conditionId_2, guid + "");
+        int realCount_2 = Integer.parseInt(realCountStr_2==null?"0":realCountStr_2);
+        boolean res_2 = realCount_2>=eventCountParam_2;
+        return  res_0 && res_1 && res_2;
     }
 
     boolean isMatchEventSeq(int guid) {
