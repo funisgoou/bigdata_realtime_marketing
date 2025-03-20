@@ -11,6 +11,8 @@ import org.roaringbitmap.RoaringBitmap
 import redis.clients.jedis.Jedis
 
 import java.text.ParseException
+import java.util.ArrayList
+import java.util.List
 
 /**
  * 事件次数类条件的运算机逻辑
@@ -34,10 +36,6 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
     private JSONArray seqEventParams;
     //人群画像圈选bitmap
     private RoaringBitmap profileUserBitmap;
-    //flink的结果输出器
-    private Collector<JSONObject> out;
-    //结果数据结构封装
-    JSONObject resultObject;
     /**
      * 规则运算机的初始化方法
      *
@@ -45,23 +43,21 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
      * @param ruleDefineParamJsonObject
      */
     @Override
-    void init(Jedis jedis, JSONObject ruleDefineParamJsonObject, RoaringBitmap profileUserBitmap, Collector<JSONObject> out) {
-        this.jedis = jedis;
+    void init(JSONObject ruleDefineParamJsonObject, RoaringBitmap profileUserBitmap) {
+        this.jedis =new Jedis("doitedu",6379);
         this.ruleDefineParamJsonObject = ruleDefineParamJsonObject;
         this.profileUserBitmap = profileUserBitmap;
-        this.out = out;
         //获取规则id
-        ruleId = ruleDefineParamJsonObject.getString("ruleId");
+        this.ruleId = ruleDefineParamJsonObject.getString("ruleId");
+        this.ruleMatchMaxCount = ruleDefineParamJsonObject.getInteger("rule_match_count");
+
         //获取事件次数条件
         this.eventCountConditionParam = ruleDefineParamJsonObject.getJSONObject("actionCountCondition");
         this.actionSeqCondition = ruleDefineParamJsonObject.getJSONObject("actionSeqCondition");
         this.actionSeqConditionId = actionSeqCondition.getInteger("conditionId");
         this.seqEventParams = actionSeqCondition.getJSONArray("eventParams")
         //获取事件条件参数
-        eventParams = eventCountConditionParam.getJSONArray("eventParams");
-        //构造一个匹配结果输出对象
-        resultObject = new JSONObject();
-        resultObject.put("ruleId", ruleId);
+        this.eventParams = eventCountConditionParam.getJSONArray("eventParams");
     }
 
     /**
@@ -70,21 +66,32 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
      * @throws ParseException
      */
     @Override
-    void process(UserEvent userEvent) throws ParseException {
+    public List<JSONObject> process(UserEvent userEvent) throws ParseException {
+        List<JSONObject> resList = new ArrayList<>();
         //判断本事件的行为人，是否属于本规则的画像人群
         if (profileUserBitmap.contains(userEvent.getGuid())) {
             //取出规则的触发事件条件参数Json
             JSONObject ruleTrigEvent = ruleDefineParamJsonObject.getJSONObject("ruleTrigEvent");
+
             //判断用户行为事件，是否是本规则的触发事件，则进行规则的匹配判断
             if (UserEventComparator.userEventIsEqualParam(userEvent, ruleTrigEvent)) {
+                JsonObject resObj = new JSONObject();
+                resObj.put("ruleId", ruleId);
+                resObj.put("resType", "trigger");
+                resObj.put("guid", userEvent.getGuid());
+                resObj.put("timestamp", System.currentTimeMillis());
+                resList.add(resObj);
                 //如果是触发事件，则判断本行为人是否满足了本规则的所有条件
                 boolean isMatch = isMatch(userEvent.getGuid());
 //                log.info("用户:{},触发事件{},规则:{},规则匹配结果:{}",userEvent.getGuid(),userEvent.getEventId(),ruleEntry.getKey(),isMatch);
                 //如果已满足，则输出本规则的触达信息
                 if (isMatch) {
-                    resultObject.put("guid", userEvent.getGuid());
-                    resultObject.put("matchTime", System.currentTimeMillis());
-                    out.collect(resultObject);
+                             JsonObject resmatchObj = new JSONObject();
+                             resmatchObj.put("ruleId", ruleId);
+                             resmatchObj.put("resType", "match");
+                             resmatchObj.put("guid", userEvent.getGuid());
+                             resmatchObj.put("timestamp", System.currentTimeMillis());
+                             resList.add(resmatchObj);
                 }
             }
             //判断用户行为事件，如果本事件不是规则的触发事件，则进行规则的条件统计运算
@@ -92,9 +99,15 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
                 //做规则运算
                 calc(userEvent);
 //                log.info("收到用户:{},行为事件:{}，处理规则:{}", userEvent.getGuid(), userEvent.getEventId(), ruleEntry.getKey());
+                JsonObject rescacObj = new JSONObject();
+                rescacObj.put("ruleId", ruleId);
+                rescacObj.put("resType", "calc");
+                rescacObj.put("guid", userEvent.getGuid());
+                rescacObj.put("timestamp", System.currentTimeMillis());
+                resList.add(rescacObj);
             }
         }
-
+        return resList;
     }
 
     @Override
@@ -190,12 +203,12 @@ public class RuleModel_02_Calculator_groovy implements RuleCalculator {
         String ruleMatchRealCntStr=jedis.hget(redisMatchCntKey,guid+"")
         int ruleMatchRealCnt=Integer.parseInt(ruleMatchRealCntStr==null?"0":ruleMatchRealCntStr)
         if(ruleMatchRealCnt <= ruleMatchMaxCount-1){
-            boolean res_0 = isMatchEventCount()
-            boolean res_1 = isMatchEventSeq()
+            boolean res_0 = isMatchEventCount(guid)
+            boolean res_1 = isMatchEventSeq(guid)
             if(#(ruleCombineExpr)){
                 jedis.hincrBy(redisMatchCntKey,guid+"",1)
+                return true;
             }
-            return true;
         }
         return false;
     }

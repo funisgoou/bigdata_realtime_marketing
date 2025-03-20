@@ -11,6 +11,7 @@ import cn.rtmk.engine.utils.FlinkStateDescriptors;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
 import org.apache.flink.streaming.api.CheckpointingMode;
@@ -22,6 +23,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.OutputTag;
 
 import java.util.Objects;
 
@@ -78,12 +80,13 @@ public class RuleEngine {
         BroadcastStream<RuleMetaBean> ruleMetaBeanBroadcastStream = ruleMetaBeanStream.broadcast(FlinkStateDescriptors.ruleMetaBeanMapStateDescriptor);
 
         //连接用户行为事件流 和 规则变更数据流
-        DataStream<JSONObject> resultStream = userEventStream.keyBy(UserEvent::getGuid)
+        SingleOutputStreamOperator<JSONObject> resultStream = userEventStream.keyBy(UserEvent::getGuid)
                 .connect(ruleMetaBeanBroadcastStream)
                 //处理用户事件，进行规则运行和匹配
                 .process(new RuleMatchProcessFunction());
         //打印规则匹配结果
         resultStream.print();
+        resultStream.getSideOutput(new OutputTag<JSONObject>("ruleStatInfo", TypeInformation.of(JSONObject.class))).print("stat");
         env.execute();
     }
 }

@@ -1,5 +1,5 @@
 select
-    guid,group_concat(concat_ws('_',event_id,event_time))
+    guid,group_concat(concat_ws('_',event_id,event_time),'^')
 from mall_app_events_detail
 where  event_time >='#(windowStart)'
  and event_time <= '#(windowEnd)'
@@ -11,4 +11,3 @@ where  event_time >='#(windowStart)'
    #end
  )
 group by guid
-;

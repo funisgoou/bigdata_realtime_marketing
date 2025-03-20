@@ -1,5 +1,8 @@
 package cn.rtmk.service;
 
+import cn.rtmk.commom.pojo.ActionSeqParam;
+import cn.rtmk.commom.pojo.AttributeParam;
+import cn.rtmk.commom.pojo.EventParam;
 import cn.rtmk.dao.DorisQueryDao;
 import cn.rtmk.dao.RuleSystemMetaDao;
 import cn.rtmk.pojo.ActionAttributeParam;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 @Service
@@ -25,7 +29,7 @@ public class ActionConditionQueryServiceImpl implements ActionConditionQueryServ
     }
 
     @Override
-	public void queryActionCount(JSONObject eventParamJsonObject, String ruleId, RoaringBitmap bitmap) throws SQLException {
+	public void processActionCountCondition(JSONObject eventParamJsonObject, String ruleId, RoaringBitmap bitmap) throws SQLException {
         //从事件次数条件中，取出各条件参数
         String eventId=eventParamJsonObject.getString("eventId");
         String windowStart=eventParamJsonObject.getString("windowStart");
@@ -38,20 +42,40 @@ public class ActionConditionQueryServiceImpl implements ActionConditionQueryServ
 			ActionAttributeParam param = new ActionAttributeParam(paramsObject.getString("attributeName"), paramsObject.getString("compareType"), paramsObject.getString("compareValue"));
 			attrParamList.add(param);
 		}
-		//调用dao类，来查询规则系统的元数据库中,行为次数条件所对应的doris查询模板
-		String sqlTemplateStr = ruleSystemMetaDao.getSqlTemplateByTemplateName(eventParamJsonObject.getString("dorisQueryTemplate"));
-		//利用enjoy模板引擎，根据条件的具体参数，动态拼接真正的查询sql
-		Template template = Engine.use().getTemplateByString(sqlTemplateStr);
+		//构造模板渲染用的数据封装
 		HashMap<String,Object> data=new HashMap<>();
 		data.put("eventId", eventId);
 		data.put("windowStart",windowStart);
 		data.put("windowEnd",windowEnd);
 		data.put("attrParamList", attrParamList);
+		//调用dao类，来查询规则系统的元数据库中,行为次数条件所对应的doris查询模板
+		String sqlTemplateStr = ruleSystemMetaDao.getSqlTemplateByTemplateName(eventParamJsonObject.getString("dorisQueryTemplate"));
+		//利用enjoy模板引擎，根据条件的具体参数，动态拼接真正的查询sql
+		Template template = Engine.use().getTemplateByString(sqlTemplateStr);
 		String sql = template.renderToString(data);
 		//调用doris查询dao，查询出结果
 		dorisQueryDao.queryActionCount(sql, ruleId, conditionId+"",bitmap);
     }
 
+	@Override
+	public void processActionSeqCondition(ActionSeqParam actionSeqParam, String ruleId, RoaringBitmap bitmap) throws SQLException {
+
+
+		HashMap<Object, Object> data = new HashMap<>();
+
+		//将需要的数据放入enjoy引擎的渲染数据载体中
+		data.put("windowStart",actionSeqParam.getWindowStart());
+		data.put("windowEnd",actionSeqParam.getWindowEnd());
+		data.put("evnentParams",actionSeqParam.getEventParams());
+
+		//利用enjoy模板引擎，根据条件的具体参数，动态拼接真正的查询sql
+		//调用dao类，来查询规则系统的元数据库中,行为次数条件所对应的doris查询模板
+		String sqlTemplateStr = ruleSystemMetaDao.getSqlTemplateByTemplateName(actionSeqParam.getDorisQueryTemplate());
+		Template template = Engine.use().getTemplateByString(sqlTemplateStr);
+		String sql = template.renderToString(data);
+		//调用doris查询dao，查询出结果
+		dorisQueryDao.queryActionSeq(sql, ruleId, actionSeqParam,bitmap);
+	}
 	public static void main(String[] args) throws SQLException {
 		ActionConditionQueryService service=new ActionConditionQueryServiceImpl();
 		String conditionJson="     {\n" +
