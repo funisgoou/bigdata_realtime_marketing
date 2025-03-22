@@ -10,8 +10,12 @@ import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.streaming.api.TimerService;
 
 import org.roaringbitmap.RoaringBitmap;
+import redis.clients.jedis.Jedis;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 事件次数类条件的运算机逻辑
@@ -27,6 +31,8 @@ class RuleModel_03_Calculator_Groovy extends TimeRuleCalculator {
     long intervalTime;
     int maxMatchCount;
     String checkEventAttribute;
+    List<JSONObject> onTimerResList;
+    Jedis jedis;
 
     @Override
     public void setTimeService(MapState<String, Long> timerState, TimerService timerService) {
@@ -35,12 +41,9 @@ class RuleModel_03_Calculator_Groovy extends TimeRuleCalculator {
     }
 
     @Override
-    public List<JSON> onTimer() {
-        return null;
-    }
-
-    @Override
     public void init(JSONObject ruleDefineParamJsonObject, RoaringBitmap profileUserBitmap) {
+        this.jedis = new Jedis("doitedu", 6379);
+
         this.ruleDefineParamJsonObject=ruleDefineParamJsonObject;
         this.profileUserBitmap=profileUserBitmap;
 
@@ -50,6 +53,7 @@ class RuleModel_03_Calculator_Groovy extends TimeRuleCalculator {
         this.intervalTime = ruleDefineParamJsonObject.getLong("interval_time");
         this.maxMatchCount = ruleDefineParamJsonObject.getInteger("rule_match_count");
         this.ruleId = ruleDefineParamJsonObject.getString("ruleId");
+        onTimerResList = new ArrayList<JSONObject>();
     }
 
     @Override
@@ -69,8 +73,7 @@ class RuleModel_03_Calculator_Groovy extends TimeRuleCalculator {
             resObj.put("resType","timerReg");
             resObj.put("guid",userEvent.getGuid());
             resObj.put("timestamp",System.currentTimeMillis());
-            
-
+            resObj.put("registerTime",registerTime);
         }
         //判断是否是检查事件
         if(UserEventComparator.userEventIsEqualParam(userEvent, checkEventJsonObject)){
@@ -82,6 +85,43 @@ class RuleModel_03_Calculator_Groovy extends TimeRuleCalculator {
                 timerService.deleteProcessingTimeTimer(registerTime);
                 timerState.remove(ruleId + ":" + checkEventAttributeValue);
             }
+            resObj.put("ruleId", ruleId);
+            resObj.put("resType","timerDel");
+            resObj.put("guid",userEvent.getGuid());
+            resObj.put("timestamp",timerService.currentProcessingTime());
+            resObj.put("registerTime",registerTime);
+        }
+        return Collections.singletonList(resObj);
+    }
+
+    @Override
+    public List<JSON> onTimer(long timestamp,int guid) throws Exception {
+        Iterable<Map.Entry<String, Long>> entries = timerState.entries();
+        String attributeValue="";
+        for (Map.Entry<String, Long> entry : entries) {
+            if (entry.getValue() == timestamp) {
+                attributeValue = entry.getKey().split(":")[1];
+                break;
+            }
+        }
+
+        //查询出该用户属性（订单）的规则触达次数
+        String realMatchCountStr = jedis.hget(ruleId + ":" + guid, attributeValue);
+        int realMatchCount = realMatchCountStr == null ? 0 : Integer.parseInt(realMatchCountStr);
+
+        //如果尚未达到触达上限
+        if(realMatchCount<maxMatchCount) {
+
+        //封装要返回的触达结果
+        JSONObject resObj = new JSONObject();
+        resObj.put("ruleId", ruleId);
+        resObj.put("resType", "match");
+        resObj.put("guid", guid);
+        resObj.put("timestamp", timerService.currentProcessingTime());
+        onTimerResList.add(resObj);
+
+        //更新redis中的触达次数
+            jedis.hincrBy(ruleId + ":" + guid, attributeValue, 1);
         }
         return null;
     }
