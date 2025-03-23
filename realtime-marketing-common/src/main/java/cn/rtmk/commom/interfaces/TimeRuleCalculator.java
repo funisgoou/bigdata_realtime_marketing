@@ -2,6 +2,7 @@ package cn.rtmk.commom.interfaces;
 
 import cn.rtmk.commom.pojo.UserEvent;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.streaming.api.TimerService;
 
@@ -13,7 +14,6 @@ import java.util.List;
  */
 public abstract class TimeRuleCalculator implements RuleCalculator{
     public abstract void setTimeService(MapState<String,Long> timerState,TimerService timerService);
-    public abstract List<JSON> onTimer();
 
     @Override
     public void calc(UserEvent userEvent) throws ParseException {
@@ -24,4 +24,6 @@ public abstract class TimeRuleCalculator implements RuleCalculator{
     public boolean isMatch(int guid) {
         return false;
     }
+
+    public abstract List<JSONObject> onTimer(long timestamp, int guid) throws Exception;
 }

@@ -50,10 +50,14 @@ public class RuleSystemMetaServiceImpl implements RuleSystemMetaService {
                                     String rule_param_json,
                                     String creator_name,
                                     int rule_status) throws IOException, SQLException {
-        ByteArrayOutputStream bao = new ByteArrayOutputStream();
-        DataOutputStream dao = new DataOutputStream(bao);
-        profileUsersBitmap.serialize(dao);
-        byte[] bitmapBytes = bao.toByteArray();
+        byte[] bitmapBytes = null;
+        if (profileUsersBitmap != null) {
+            ByteArrayOutputStream bao = new ByteArrayOutputStream();
+            DataOutputStream dao = new DataOutputStream(bao);
+            profileUsersBitmap.serialize(dao);
+            bitmapBytes = bao.toByteArray();
+        }
+
         Timestamp timestamp = new Timestamp(System.currentTimeMillis());
         ruleSystemMetaDao.insertRuleInfo(rule_id,rule_model_id,
                 bitmapBytes,caculator_groovy_code,rule_param_json,creator_name,rule_status,

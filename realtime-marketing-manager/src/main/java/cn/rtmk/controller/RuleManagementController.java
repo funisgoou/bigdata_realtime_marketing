@@ -183,4 +183,25 @@ public class RuleManagementController {
                 bitmap, groovyCaculatorCode, ruleDefine, "hugo", 1);
 
     }
+
+    @RequestMapping("/api/publish/addrule/model03")
+    public void publishRuleModel03(@RequestBody String ruleDefine) throws IOException, SQLException {
+        JSONObject ruleDefineJsonObject = JSON.parseObject(ruleDefine);
+        String ruleId = ruleDefineJsonObject.getString("ruleId");
+          
+        /**
+         * 一、 规则的groovy运算代码处理
+         */
+        String groovyCode = ruleSystemMetaService.findRuleModelGroovyTemplate(ruleDefineJsonObject.getInteger("ruleModelId"));
+
+
+        /**
+         * 二、正式发布规则
+         * 规则参数(大json)
+         * 规则运算的groovy代码
+         */
+        ruleSystemMetaService.publishRuleInstance(ruleId, ruleDefineJsonObject.getInteger("ruleModelId"),
+                null, groovyCode, ruleDefine, "hugo", 1);
+
+    }
 }
