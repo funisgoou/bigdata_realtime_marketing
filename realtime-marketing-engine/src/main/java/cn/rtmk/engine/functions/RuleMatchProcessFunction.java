@@ -25,12 +25,12 @@ import java.util.Map;
 
 @Slf4j
 public class RuleMatchProcessFunction extends KeyedBroadcastProcessFunction<Integer, UserEvent, RuleMetaBean, JSONObject> {
-    
+
     MapState<String, Long> timeState;
 
     @Override
     public void open(Configuration parameters) throws Exception {
-         timeState=getRuntimeContext().getMapState(new MapStateDescriptor<String,Long>("timerState",String.class,long.class));
+        timeState = getRuntimeContext().getMapState(new MapStateDescriptor<String, Long>("timerState", String.class, long.class));
     }
 
     /**
@@ -49,20 +49,47 @@ public class RuleMatchProcessFunction extends KeyedBroadcastProcessFunction<Inte
             RuleMetaBean ruleMetaBean = ruleEntry.getValue();
 
             //调用规则的运算机，对输入事件进行处理
-            RuleCalculator  ruleCalculator= ruleMetaBean.getRuleConditionCaculator();
+            RuleCalculator ruleCalculator = ruleMetaBean.getRuleConditionCaculator();
 
             //如果该规则的运算机是需要用到定时器功能的
-            if(ruleCalculator instanceof TimeRuleCalculator){
+            List<JSONObject> caculatorResponse;
+            if (ruleCalculator instanceof TimeRuleCalculator) {
                 TimeRuleCalculator timeRuleCalculator = (TimeRuleCalculator) ruleCalculator;
-                timeRuleCalculator.setTimeService(timeState, null);
+                caculatorResponse = timeRuleCalculator.process(userEvent, timeState, ctx.timerService());
+            } else {
+                caculatorResponse = ruleCalculator.process(userEvent);
             }
-            
-            List<JSONObject> caculatorResponse = ruleCalculator.process(userEvent);
-            for(JSONObject resObject:caculatorResponse){
-                if("match".equals(resObject.getString("resType"))){
+            //输出运算机的响应数据
+            for (JSONObject resObject : caculatorResponse) {
+                if ("match".equals(resObject.getString("resType"))) {
                     out.collect(resObject);
-                }else {
-                    ctx.output(new OutputTag<>("ruleStatInfo", TypeInformation.of(JSONObject.class)),resObject);
+                } else {
+                    ctx.output(new OutputTag<>("ruleStatInfo", TypeInformation.of(JSONObject.class)), resObject);
+                }
+            }
+
+        }
+    }
+
+    @Override
+    public void onTimer(long timestamp, KeyedBroadcastProcessFunction<Integer, UserEvent, RuleMetaBean, JSONObject>.OnTimerContext ctx, Collector<JSONObject> out) throws Exception {
+        for (Map.Entry<String, Long> entry : timeState.entries()) {
+            //ruleId+":"+checkEventAttributeValue
+            String key = entry.getKey();
+            String ruleId = key.split(":")[0];
+            Long registerTime = entry.getValue();
+            if (registerTime != null && registerTime == timestamp) {
+                RuleCalculator ruleCalculator = ctx.getBroadcastState(FlinkStateDescriptors.ruleMetaBeanMapStateDescriptor).get(ruleId).getRuleConditionCaculator();
+                if (ruleCalculator instanceof TimeRuleCalculator) {
+                    TimeRuleCalculator timeRuleCalculator = (TimeRuleCalculator) ruleCalculator;
+                    List<JSONObject> resJsonObject = timeRuleCalculator.onTimer(timestamp, ctx.getCurrentKey(),timeState, ctx.timerService());
+                    for (JSONObject resObject : resJsonObject) {
+                        if ("match".equals(resObject.getString("resType"))) {
+                            out.collect(resObject);
+                        } else {
+                            ctx.output(new OutputTag<>("ruleStatInfo", TypeInformation.of(JSONObject.class)), resObject);
+                        }
+                    }
                 }
             }
         }
@@ -83,19 +110,19 @@ public class RuleMatchProcessFunction extends KeyedBroadcastProcessFunction<Inte
         //根据收到的规则管理的操作类型，去操作广播状态
         try {
             String operateType = ruleMetaBean.getOperateType();
-            if ("INSERT".equals(operateType) || "UPDATE".equals(operateType))  {
+            if ("INSERT".equals(operateType) || "UPDATE".equals(operateType)) {
                 //把规则的运算机groovy代码，动态编译加载并反射成具体的运算机对象
                 Class aClass = new GroovyClassLoader().parseClass(ruleMetaBean.getCaculatorGroovyCode());
                 RuleCalculator ruleConditionCaculator = (RuleCalculator) aClass.newInstance();
                 //对规则运算器做初始化
-                ruleConditionCaculator.init(JSON.parseObject(ruleMetaBean.getRuleParamJson()),ruleMetaBean.getProfileUserBitmap());
+                ruleConditionCaculator.init(JSON.parseObject(ruleMetaBean.getRuleParamJson()), ruleMetaBean.getProfileUserBitmap());
 
                 //如果该规则的运算机是需要用到定时器功能的
-                if(ruleConditionCaculator instanceof TimeRuleCalculator){
-                    TimeRuleCalculator timeRuleCalculator = (TimeRuleCalculator) ruleConditionCaculator;
-                    timeRuleCalculator.setTimeService(timeState, null);
-                }
-                
+//                if (ruleConditionCaculator instanceof TimeRuleCalculator) {
+//                    TimeRuleCalculator timeRuleCalculator = (TimeRuleCalculator) ruleConditionCaculator;
+//                    timeRuleCalculator.setTimeService(timeState, null);
+//                }
+
                 //然后将创建好的运算机对象，填充到ruleMetaBean
                 ruleMetaBean.setRuleConditionCaculator(ruleConditionCaculator);
                 //再把ruleMetaBean放入广播状态中
