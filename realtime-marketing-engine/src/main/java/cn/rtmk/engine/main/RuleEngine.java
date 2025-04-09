@@ -4,8 +4,6 @@ import cn.rtmk.commom.pojo.UserEvent;
 import cn.rtmk.engine.functions.Json2UserEventMapFunction;
 import cn.rtmk.engine.functions.Row2RuleMetaBeanMapFunction;
 import cn.rtmk.engine.functions.RuleMatchProcessFunction;
-import cn.rtmk.engine.functions.RuleMatchProcessFunctionOld;
-import cn.rtmk.engine.pojo.RuleMatchResult;
 import cn.rtmk.engine.pojo.RuleMetaBean;
 import cn.rtmk.engine.utils.FlinkStateDescriptors;
 import com.alibaba.fastjson.JSONObject;
