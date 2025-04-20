@@ -1,4 +1,0 @@
-Hello Spark
-Flink Hello
-Spark Spark
-Flink Hadoop
